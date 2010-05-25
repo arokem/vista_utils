@@ -7,8 +7,8 @@ using the Matlab toolbox mrVista (http://white.stanford.edu/mrvista)
 """ 
 import numpy as np
 import scipy.io as sio
-import timeseries as ts
-import utils as tsu
+import nitime.timeseries as ts
+import nitime.utils as tsu
 
 ##---- getROIcoords: -----------------------------------------------
 def getROIcoords(ROI_file):
@@ -105,7 +105,7 @@ def get_time_series_inplane(coords,scan_file,
     if average:
         this_data = np.mean(this_data,0)
         
-    time_series = ts.UniformTimeSeries(data=this_data,sampling_interval=TR)
+    time_series = ts.TimeSeries(data=this_data,sampling_interval=TR)
 
     if detrend:
         F = ta.FilterAnalyzer(this_bold,lb=f_c)
