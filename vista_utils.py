@@ -31,7 +31,7 @@ def getROIcoords(ROI_file):
     
     """
 
-    ROI_mat_file = sio.loadmat(ROI_file,squeeze_me=True)
+    ROI_mat_file = sio.loadmat(ROI_file,squeeze_me=True,struct_as_record=False)
     
     return ROI_mat_file['ROI'].coords
     
