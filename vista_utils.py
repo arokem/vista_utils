@@ -82,7 +82,7 @@ def get_time_series_inplane(coords,scan_file,
     => average (across voxels, on a time-point-by-time-point basis)
 
     """
-    from nipy.io.imageformats import load
+    from nibabel import load
     
     #Get the nifti image object
 
