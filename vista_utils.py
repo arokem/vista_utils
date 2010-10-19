@@ -10,6 +10,13 @@ import scipy.io as sio
 import nitime.timeseries as ts
 import nitime.utils as tsu
 
+__all__ = ['getROIcoords',
+           'get_time_series_inplane',
+           'detrend_tseries',
+           'filter_coords',
+           'upsample_coords',
+           'vector_mean']
+
 ##---- getROIcoords: -----------------------------------------------
 def getROIcoords(ROI_file):
     """Get the ROI coordinates for a given ROI and scan in the Gray
@@ -228,3 +235,57 @@ def filter_coords(coords,filt,filt_thresh,up_sample_factor):
     coords_out = tsu.intersect_coords(newCoords,coords_filt)
         
     return coords_out
+def upsample_coords(coords,up_sample_factor):
+    """up-sample coords from the gray resolution into the Inplane resolution,
+    from a set of input coords, given in the order [Inplane,Inplane,Slices] and
+    the up_sample_factor in each of these dimensions.
+
+    Takes into account the fact that the coords are off by one, due to Matlab's
+    1-based indexing...
+
+    """
+    newCoords = np.empty(coords.shape,dtype=int)
+    #Inplane: 
+    newCoords[0,:] = np.round(coords[0,:] / up_sample_factor[0] - 1).astype(int)
+    #Inplane:
+    newCoords[1,:] = np.round(coords[1,:] / up_sample_factor[1] - 1).astype(int)
+    #Slices:
+    newCoords[2,:] = np.round(coords[2,:] / up_sample_factor[2] - 1).astype(int)
+
+    return (newCoords[0],newCoords[1],newCoords[2])
+
+def vector_mean(coranal,scan_num,coords,upsamp,n_cycles):
+    """
+    Given an mrVista coranal (read in with sio.loadmat, squeeze_me=True,
+    struct_as_record=False), a scan number, coords into the arrays in the
+    coranal (and the appropriate upsampling factor) produce back the mean
+    amplitude, the mean phase and the meanStd for that scan as is done in:
+
+    mrLoadRet/Analysis/BlockAnalysis/vectorMean.m
+    """
+
+    coords= upsample_coords(coords,upsamp)
+
+    ph = coranal['ph'][scan_num][coords]
+    amp = coranal['amp'][scan_num][coords]
+    co = coranal['co'][scan_num][coords] 
+
+    #This is simple: 
+    mean_co = np.mean(co)
+
+    #This is a bit more complicated: 
+    i = np.complex(0,1)
+    z = amp * np.exp(i*ph)
+
+    meanZ = np.mean(z)
+
+    mean_amp = np.abs(meanZ)
+    mean_ph = np.angle(meanZ)
+
+    #Compute the standard error of the complex quantity:
+    se_z = np.std(z)/np.sqrt(len(z))
+
+    #And compute another measure of error based on the coherence and amplitude: 
+    mean_std = mean_amp * np.sqrt(((1/np.mean(co)**2))-1)
+    
+    return mean_amp,mean_ph,se_z,mean_std/n_cycles
