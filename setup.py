@@ -21,7 +21,7 @@ opts = dict(name=NAME,
             author=AUTHOR,
             author_email=AUTHOR_EMAIL,
             version=VERSION,
-           #packages=PACKAGES,
+            packages=PACKAGES,
             requires=REQUIRES,
             )
 
