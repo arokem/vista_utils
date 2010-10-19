@@ -36,5 +36,5 @@ MAJOR               = _version_major
 MINOR               = _version_minor
 MICRO               = _version_micro
 VERSION             = __version__
-PACKAGES            = ['vista_utils']
+#PACKAGES            = ['vista_utils']
 REQUIRES            = ["numpy", "matplotlib", "scipy"]
