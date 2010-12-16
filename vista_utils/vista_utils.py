@@ -18,7 +18,8 @@ __all__ = ['getROIcoords',
            'detrend_tseries',
            'filter_coords',
            'upsample_coords',
-           'vector_mean']
+           'vector_mean',
+           'get_flat_ts']
 
 ##---- getROIcoords: -----------------------------------------------
 def getROIcoords(ROI_file):
@@ -294,7 +295,8 @@ def vector_mean(coranal,scan_num,coords,upsamp,n_cycles):
     return mean_amp,mean_ph,se_z,mean_std/n_cycles
 
 
-def get_flat_ts(flat_dir,nii_file,mr_session,alignment,TR=2.,lb=0,ub=None):
+def get_flat_ts(flat_dir,nii_file,mr_session,TR,up_samp=[1,1,1],
+                normalize='zscore',lb=0,ub=None):
 
     """
 
@@ -351,29 +353,31 @@ def get_flat_ts(flat_dir,nii_file,mr_session,alignment,TR=2.,lb=0,ub=None):
 
     # Do the transformation for both hemispheres, upsample, and then round , so
     # that we get the Inplane coords:
-    inplane_coords = [np.round(tsv.upsample_coords(alignment * gray_coords[i],
-                                                   up_samp)) for i in range(2)]
+    inplane_coords = [np.round(upsample_coords(alignment * gray_coords[i],
+                                               up_samp)) for i in range(2)]
        
     # Get the data from the nifti file in question, while boxcar filtering into
     # the frequency range defined by the input::
-    tseries = load_nii(nii_file,inplane_coords,TR,normalize='zscore',
+    tseries = load_nii(nii_file,inplane_coords,TR,normalize=normalize,
                        filter=dict(method='boxcar',lb=lb,ub=ub),
                        verbose=True)
 
-    im_size = coords_mat['imSize']
+    print ('Assigning data to flat coordinates')
+    im_size = tuple(coords_mat['imSize'])
     
     # Make the TimeSeries to fill with data (one for each hemisphere):
-    tseries_out = []
+    ts_out = []
 
     # Loop over hemispheres: 
     for hemi_idx in range(2):
         # Add a TimeSeries with the right shape:
-        tseries_out.append(ts.TimeSeries(data=np.ones(im_size,
-                                                      tseries.length)*np.nan,
-                                                        sampling_interval=TR))
+        ts_out.append(ts.TimeSeries(data=np.ones(
+                      np.hstack([im_size,tseries[hemi_idx].shape[-1]]))*np.nan,
+                                    sampling_interval=TR))
         
         idx = tuple(np.round(flat_coords[hemi_idx]-1).astype(int))
-        for t in tseries[hemi_idx].time:
-            tseries_out[hemi_idx].at(t)[idx]=tseries[hemi_idx].at(t)
-
-    return tseries_out
+        my_t = tseries[hemi_idx].time
+        for t in my_t:
+            ts_out[-1].data[...,my_t.index_at(t)][idx]=tseries[hemi_idx].at(t)
+    
+    return ts_out
