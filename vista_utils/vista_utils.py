@@ -7,8 +7,11 @@ using the Matlab toolbox mrVista (http://white.stanford.edu/mrvista)
 """ 
 import numpy as np
 import scipy.io as sio
+
 import nitime.timeseries as ts
 import nitime.utils as tsu
+
+from nitime.fmri.io import time_series_from_file as load_nii 
 
 __all__ = ['getROIcoords',
            'get_time_series_inplane',
@@ -252,7 +255,7 @@ def upsample_coords(coords,up_sample_factor):
     #Slices:
     newCoords[2,:] = np.round(coords[2,:] / up_sample_factor[2] - 1).astype(int)
 
-    return (newCoords[0],newCoords[1],newCoords[2])
+    return newCoords
 
 def vector_mean(coranal,scan_num,coords,upsamp,n_cycles):
     """
@@ -289,3 +292,88 @@ def vector_mean(coranal,scan_num,coords,upsamp,n_cycles):
     mean_std = mean_amp * np.sqrt(((1/np.mean(co)**2))-1)
     
     return mean_amp,mean_ph,se_z,mean_std/n_cycles
+
+
+def get_flat_ts(flat_dir,nii_file,mr_session,alignment,TR=2.,lb=0,ub=None):
+
+    """
+
+    Returns the flattened time-dependent data from a nifti file
+
+    
+    Parameters
+    ----------
+    flat_dir: str
+        The full path to the flat directory containing the information for this
+        flat patch
+
+    nii_file: str,
+        The full path to the nifti file with the data.
+
+    mr_session: str
+        Full path to the mrSESSION.mat file, from which the alignment will be
+        pulled 
+    
+    TR: float
+       The TR used to sample the data
+
+    lb,ub: float
+       The cutoff points for a boxcar filter
+       
+    Returns
+    -------
+
+    (left_hemi, right_hemi): tuple of NxNxT array, with the time-resolved data,
+    as it appears in the flattened representation.
+    
+    """
+    coords_mat = sio.loadmat('%s/coords.mat'%flat_dir,squeeze_me=True)
+    flat_coords = coords_mat['coords']
+    gray_coords = coords_mat['grayCoords']
+    
+    # Add ones to the end, to make the shape work for the transformation with
+    # the alignment matrix, below:
+    gray_coords = [np.vstack([gray_coords[i],np.ones(gray_coords[i].shape[-1])])
+                   for i in range(2)] # 2 hemispheres
+ 
+    mrSESSION = sio.loadmat(mr_session,squeeze_me=True,struct_as_record=True)
+
+    # The following extracts the alignment matrix from Inplane to Volume
+    # coordinates:
+    alignment = np.matrix(mrSESSION['mrSESSION']['alignment'][np.newaxis][0].squeeze())
+
+    # The mrSESSION alignment matrix is the one that aligns from Inplane to
+    # Volume. For this, we want the inverse:
+    alignment = alignment.getI()
+
+    # And we only need the 4 by 4 matrix:
+    alignment = alignment[:3,:]
+
+    # Do the transformation for both hemispheres, upsample, and then round , so
+    # that we get the Inplane coords:
+    inplane_coords = [np.round(tsv.upsample_coords(alignment * gray_coords[i],
+                                                   up_samp)) for i in range(2)]
+       
+    # Get the data from the nifti file in question, while boxcar filtering into
+    # the frequency range defined by the input::
+    tseries = load_nii(nii_file,inplane_coords,TR,normalize='zscore',
+                       filter=dict(method='boxcar',lb=lb,ub=ub),
+                       verbose=True)
+
+    im_size = coords_mat['imSize']
+    
+    # Make the TimeSeries to fill with data (one for each hemisphere):
+    tseries_out = []
+
+    # Loop over hemispheres: 
+    for hemi_idx in range(2):
+        # Add a TimeSeries with the right shape:
+        tseries_out.append(ts.TimeSeries(data=np.ones(im_size,
+                                                      tseries.length)*np.nan,
+                                                        sampling_interval=TR))
+        
+        idx = tuple(np.round(flat_coords[hemi_idx]-1).astype(int))
+        for t in tseries[hemi_idx].time:
+            tseries_out[hemi_idx].at(t)[idx]=tseries[hemi_idx].at(t)
+
+    return tseries_out
