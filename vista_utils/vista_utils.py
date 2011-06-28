@@ -325,8 +325,7 @@ def get_flat_ts(flat_dir,nii_file,mr_session,TR,up_samp=[1,1,1],
     Returns
     -------
 
-    (left_hemi, right_hemi): tuple of NxNxT array, with the time-resolved data,
-    as it appears in the flattened representation.
+    ts_out, flat_coords : list with [tseries_l,tseries_r]
     
     """
     coords_mat = sio.loadmat('%s/coords.mat'%flat_dir,squeeze_me=True)
@@ -380,4 +379,4 @@ def get_flat_ts(flat_dir,nii_file,mr_session,TR,up_samp=[1,1,1],
         for t in my_t:
             ts_out[-1].data[...,my_t.index_at(t)][idx]=tseries[hemi_idx].at(t)
     
-    return ts_out
+    return ts_out,flat_coords
