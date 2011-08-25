@@ -7,6 +7,19 @@ for the analysis of (f)MRI data. It is mostly written in matlab.
 vista_utils contains a set of Python functions, to facilitate interaction 
 with data created using mrVista.  
 
+Installing
+----------
+
+To install vista_utils, download the source, set your working directory to 
+the source directory and issue:: 
+    
+    python setup.py install [--prefix=path/to/install]
+
+Where the optional prefix argument allows you to determine the location of 
+the installation. For more details see: 
+http://docs.python.org/install/index.html#alternate-installation-unix-the-prefix-scheme 
+
+
 License
 -------
 
